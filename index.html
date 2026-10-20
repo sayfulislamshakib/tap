@@ -1,32 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta http-equiv="x-ua-compatible" content="ie=edge" />
-		<title>Tap Counter</title>
-		<meta name="description" content="" />
-		<meta name="viewport" content="width=device-width,initial-scale=1" />
-		<link rel="apple-touch-icon" href="apple-touch-icon.png" />
-		<link rel="stylesheet" href="style.css" />
-	</head>
-	<body>
-		<div class="app-container">
-			<div class="ios-nav-bar">
-				<div class="nav-item">
-					<button class="left-nav-button">Reset</button>
-				</div>
-				<div class="nav-item">
-					<h1 class="title">Counter</h1>
-				</div>
-				<div class="nav-item"></div>
+
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="x-ua-compatible" content="ie=edge" />
+	<title>Tap Counter</title>
+	<meta name="description" content="" />
+	<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+	<meta name="theme-color" content="#121212" />
+	<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link rel="stylesheet" href="style.css" />
+	<script src="script.js" defer></script>
+</head>
+
+<body>
+	<div class="app-container">
+		<div class="ios-nav-bar">
+			<div class="nav-item">
+				<button class="left-nav-button">Reset</button>
 			</div>
-			<div class="tap-container">
-				<div class="tap-contents">
-					<p class="count label">0</p>
-					<button id="interactionText" class="tap-button"></button>
-				</div>
+			<div class="nav-item">
+				<h1 class="title">Counter</h1>
+			</div>
+			<div class="nav-item">
+				<button id="settingsBtn" class="right-nav-button" aria-label="Settings">
+					<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path
+							d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+						<circle cx="12" cy="12" r="3" />
+					</svg>
+				</button>
 			</div>
 		</div>
-	</body>
-	<script src="script.js"></script>
+		<div class="tap-container">
+			<div class="tap-contents">
+				<div id="targetIndicator" class="target-indicator hidden">Target <span id="targetValueText">0</span>
+				</div>
+				<p id="targetNoteText" class="target-note-text hidden"></p>
+				<p class="count label">0</p>
+			</div>
+			<div id="tapAreaBottom" class="tap-area-bottom">
+				<button id="interactionText" class="tap-button">Tap</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Confetti Canvas -->
+	<canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+
+	<!-- Settings Modal -->
+	<div id="settingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+		aria-labelledby="settingsTitle">
+		<div class="modal-card">
+			<div class="modal-header">
+				<h2 id="settingsTitle">Settings</h2>
+				<button id="closeSettingsBtn" class="modal-close-btn" aria-label="Close settings">&times;</button>
+			</div>
+
+			<!-- Settings Navigation Tabs -->
+			<div class="settings-tabs">
+				<button id="tabBtnGeneral" class="tab-btn active" type="button">General</button>
+				<button id="tabBtnHistory" class="tab-btn" type="button">History</button>
+			</div>
+
+			<!-- General Settings Tab -->
+			<div id="generalSettingsTab" class="tab-panel">
+				<div class="setting-item">
+					<label for="targetInput">Set Target Count</label>
+					<div class="setting-field">
+						<input type="number" id="targetInput" min="0" max="999999" placeholder="Off (0 or empty)" />
+					</div>
+					<small class="setting-help">Vibrates celebration pattern when target is reached</small>
+				</div>
+
+				<div class="setting-item">
+					<label for="targetNoteInput">Target Note</label>
+					<div class="setting-field">
+						<input type="text" id="targetNoteInput" maxlength="60"
+							placeholder="e.g. Daily prayers, Pushups, Tasbeeh..." />
+					</div>
+					<small class="setting-help">Displays your intention/goal right below the counter</small>
+				</div>
+
+				<div class="setting-item">
+					<div class="setting-row-flex">
+						<label for="vibrationToggle">Vibration</label>
+						<label class="switch">
+							<input type="checkbox" id="vibrationToggle" checked />
+							<span class="slider round"></span>
+						</label>
+					</div>
+				</div>
+
+				<div id="intensitySection" class="setting-item">
+					<label>Vibration Intensity</label>
+					<div class="segmented-control" role="radiogroup" aria-label="Vibration Intensity">
+						<button type="button" class="segment-btn" data-intensity="light">Light</button>
+						<button type="button" class="segment-btn active" data-intensity="medium">Medium</button>
+						<button type="button" class="segment-btn" data-intensity="strong">Strong</button>
+					</div>
+				</div>
+
+				<div class="modal-actions">
+					<button id="saveSettingsBtn" class="primary-btn">Save</button>
+				</div>
+			</div>
+
+			<!-- History Tab -->
+			<div id="historyTab" class="tab-panel hidden">
+				<div class="history-header">
+					<span class="history-count-title">Saved Sessions</span>
+					<button id="clearHistoryBtn" class="clear-history-btn" type="button">Clear</button>
+				</div>
+				<div id="historyList" class="history-list"></div>
+			</div>
+		</div>
+	</div>
+</body>
+
 </html>
