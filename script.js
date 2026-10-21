@@ -108,6 +108,7 @@ function saveSettings() {
 	targetCount = !isNaN(parsed) && parsed > 0 ? parsed : null;
 	targetNote = targetNoteInput.value.trim();
 	vibrationEnabled = vibrationToggle.checked;
+	vibrationIntensity = pendingVibrationIntensity;
 
 	try {
 		if (targetCount !== null) {
@@ -138,10 +139,11 @@ function renderSettingsUI() {
 	targetInput.value = targetCount !== null ? targetCount : "";
 	targetNoteInput.value = targetNote || "";
 	vibrationToggle.checked = vibrationEnabled;
+	pendingVibrationIntensity = vibrationIntensity;
 	intensitySection.style.display = vibrationEnabled ? "block" : "none";
 
 	segmentButtons.forEach((btn) => {
-		btn.classList.toggle("active", btn.dataset.intensity === vibrationIntensity);
+		btn.classList.toggle("active", btn.dataset.intensity === pendingVibrationIntensity);
 	});
 	renderHistoryList();
 }
@@ -164,9 +166,11 @@ function renderTargetNote() {
 	}
 }
 
+let pendingVibrationIntensity = "medium";
+
 // History Archiving & Formatting
 function recordSessionStart() {
-	if (!sessionStartTime && count > 0) {
+	if (!sessionStartTime) {
 		sessionStartTime = new Date().toISOString();
 		try {
 			localStorage.setItem(STORAGE_KEYS.SESSION_START, sessionStartTime);
@@ -582,10 +586,10 @@ segmentButtons.forEach((btn) => {
 	btn.addEventListener("click", () => {
 		segmentButtons.forEach((b) => b.classList.remove("active"));
 		btn.classList.add("active");
-		vibrationIntensity = btn.dataset.intensity;
+		pendingVibrationIntensity = btn.dataset.intensity;
 
 		if (vibrationToggle.checked) {
-			doVibrate(INTENSITIES[vibrationIntensity]);
+			doVibrate(INTENSITIES[pendingVibrationIntensity]);
 		}
 	});
 });
