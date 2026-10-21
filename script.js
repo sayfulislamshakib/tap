@@ -314,10 +314,19 @@ function triggerRipple() {
 	tapButton.classList.add("rippling");
 }
 
-function triggerVibration() {
-	if (vibrationEnabled && hasVibrate) {
-		navigator.vibrate(INTENSITIES[vibrationIntensity] || 50);
+function doVibrate(pattern) {
+	if (!vibrationEnabled) return;
+	try {
+		if (navigator.vibrate) {
+			navigator.vibrate(pattern);
+		}
+	} catch (e) {
+		// Ignore environments where vibrate is blocked by permissions policy
 	}
+}
+
+function triggerVibration() {
+	doVibrate(INTENSITIES[vibrationIntensity] || 50);
 
 	tapButton.classList.remove("vibrating");
 	void tapButton.offsetWidth; // Fast reflow restart
@@ -405,9 +414,7 @@ function triggerCelebration() {
 	if (lastCelebratedTarget === targetCount) return;
 	lastCelebratedTarget = targetCount;
 
-	if (vibrationEnabled && hasVibrate) {
-		navigator.vibrate([100, 50, 100, 50, 200]);
-	}
+	doVibrate([100, 50, 100, 50, 200]);
 	targetIndicator.classList.add("reached");
 
 	// Trigger pop celebration animation on the total count label
@@ -526,7 +533,7 @@ function decrementCounter(e) {
 		count--;
 		updateDisplay("down");
 		persistCount();
-		triggerVibration();
+		doVibrate(INTENSITIES[vibrationIntensity] || 50);
 		checkTarget(false); // Do not play confetti celebration when decrementing back to target
 	}
 }
@@ -549,6 +556,10 @@ function updateButtonText() {
 countLabel.addEventListener("click", decrementCounter);
 tapAreaBottom.addEventListener("click", incrementCounter);
 resetButton.addEventListener("click", resetCounter);
+
+// Prevent browser context menu / callout popup on mobile long-press
+countLabel.addEventListener("contextmenu", (e) => e.preventDefault());
+tapAreaBottom.addEventListener("contextmenu", (e) => e.preventDefault());
 
 settingsBtn.addEventListener("click", openSettings);
 closeSettingsBtn.addEventListener("click", closeSettings);
@@ -573,8 +584,8 @@ segmentButtons.forEach((btn) => {
 		btn.classList.add("active");
 		vibrationIntensity = btn.dataset.intensity;
 
-		if (vibrationToggle.checked && hasVibrate) {
-			navigator.vibrate(INTENSITIES[vibrationIntensity]);
+		if (vibrationToggle.checked) {
+			doVibrate(INTENSITIES[vibrationIntensity]);
 		}
 	});
 });
