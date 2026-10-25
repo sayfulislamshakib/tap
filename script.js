@@ -36,6 +36,7 @@ const STORAGE_KEYS = {
 	NOTE: "tap_target_note",
 	SESSION_START: "tap_session_start",
 	HISTORY: "tap_history",
+	ACTIVE_HISTORY_ID: "tap_active_history_id",
 	VIBE_ENABLED: "tap_vibe_enabled",
 	INTENSITY: "tap_vibe_intensity"
 };
@@ -52,6 +53,7 @@ let count = 0;
 let targetCount = null;
 let targetNote = "";
 let sessionStartTime = null;
+let activeHistoryId = null;
 let historyItems = [];
 let vibrationEnabled = true;
 let vibrationIntensity = "medium";
@@ -85,6 +87,14 @@ function loadSettings() {
 		const savedSessionStart = localStorage.getItem(STORAGE_KEYS.SESSION_START);
 		if (savedSessionStart) {
 			sessionStartTime = savedSessionStart;
+		}
+
+		const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_HISTORY_ID);
+		if (savedActiveId) {
+			const parsedId = parseInt(savedActiveId, 10);
+			if (!isNaN(parsedId)) {
+				activeHistoryId = parsedId;
+			}
 		}
 
 		const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
@@ -132,6 +142,7 @@ function saveSettings() {
 
 	renderTargetIndicator();
 	renderTargetNote();
+	syncActiveHistoryItem();
 	checkTarget();
 	closeSettings();
 }
@@ -195,6 +206,30 @@ function sortHistoryItems() {
 function archiveSession() {
 	if (count === 0) return;
 
+	if (activeHistoryId) {
+		const existing = historyItems.find((it) => it.id === activeHistoryId);
+		if (existing) {
+			existing.count = count;
+			existing.target = targetCount;
+			existing.note = targetNote || "";
+			existing.endDate = new Date().toISOString();
+			sortHistoryItems();
+
+			try {
+				localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
+				localStorage.removeItem(STORAGE_KEYS.SESSION_START);
+				localStorage.removeItem(STORAGE_KEYS.ACTIVE_HISTORY_ID);
+			} catch (e) {
+				console.warn("Failed to update active history session:", e);
+			}
+
+			activeHistoryId = null;
+			sessionStartTime = null;
+			renderHistoryList();
+			return;
+		}
+	}
+
 	const entry = {
 		id: Date.now(),
 		count: count,
@@ -226,12 +261,43 @@ function archiveSession() {
 	try {
 		localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
 		localStorage.removeItem(STORAGE_KEYS.SESSION_START);
+		localStorage.removeItem(STORAGE_KEYS.ACTIVE_HISTORY_ID);
 	} catch (e) {
 		console.warn("Failed to archive session:", e);
 	}
 
+	activeHistoryId = null;
 	sessionStartTime = null;
 	renderHistoryList();
+}
+
+function syncActiveHistoryItem() {
+	if (!activeHistoryId) return;
+	const existing = historyItems.find((it) => it.id === activeHistoryId);
+	if (existing) {
+		existing.count = count;
+		existing.target = targetCount;
+		existing.note = targetNote || "";
+		existing.endDate = new Date().toISOString();
+		try {
+			localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
+		} catch (e) {}
+
+		// If settings modal is open and on history tab, update the card in-place for best tap performance
+		if (historyList && !settingsModal.classList.contains("hidden")) {
+			const activeItemCard = historyList.querySelector(".is-active-session");
+			if (activeItemCard) {
+				const badge = activeItemCard.querySelector(".history-count-badge");
+				if (badge) {
+					badge.textContent = count;
+					const isTargetMet = existing.target !== null && existing.count >= existing.target;
+					badge.classList.toggle("target-met", isTargetMet);
+				}
+			} else {
+				renderHistoryList();
+			}
+		}
+	}
 }
 
 function formatDate(isoString) {
@@ -261,20 +327,23 @@ function renderHistoryList() {
 	}
 
 	historyItems.forEach((item) => {
+		const isActive = activeHistoryId === item.id;
 		const div = document.createElement("div");
-		div.className = `history-item ${item.pinned ? "is-pinned" : ""}`;
+		div.className = `history-item ${item.pinned ? "is-pinned" : ""} ${isActive ? "is-active-session" : ""}`;
 		div.setAttribute("role", "button");
 		div.setAttribute("tabindex", "0");
-		div.setAttribute("title", "Click to load and resume counting from here");
+		div.setAttribute("title", isActive ? "Currently counting on this session" : "Click to load and resume counting from here");
 
 		const isTargetMet = item.target !== null && item.count >= item.target;
 		const targetLabel = item.target ? `Target: ${item.target}` : "No target";
+		const activeBadge = isActive ? `<span class="history-active-pill">Active</span>` : "";
 		const noteMarkup = item.note ? `<div class="history-note">${escapeHtml(item.note)}</div>` : "";
 
 		div.innerHTML = `
 			<div class="history-item-top">
 				<span class="history-count-badge ${isTargetMet ? "target-met" : ""}">${item.count}</span>
 				<div class="history-item-actions">
+					${activeBadge}
 					<span class="history-target-pill">${targetLabel}</span>
 					<button class="history-pin-btn ${item.pinned ? "pinned" : ""}" type="button" aria-label="${item.pinned ? "Unpin session" : "Pin session"}" title="${item.pinned ? "Unpin session" : "Pin session"}">
 						<svg viewBox="0 0 24 24" fill="${item.pinned ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -338,18 +407,20 @@ function restoreSession(item) {
 	const newCount = typeof item.count === "number" ? item.count : parseInt(item.count, 10) || 0;
 
 	// If current count has active unsaved progress different from this item, archive it first
-	if (count > 0 && count !== newCount) {
+	if (count > 0 && activeHistoryId !== item.id && count !== newCount) {
 		archiveSession();
 	}
 
-	// Restore count, target, and note from the history item
+	// Restore count, target, note, and connect to this existing history session
 	count = newCount;
 	targetCount = item.target !== undefined && item.target !== null ? item.target : null;
 	targetNote = item.note || "";
 	sessionStartTime = item.startDate || new Date().toISOString();
+	activeHistoryId = item.id;
 
 	try {
 		localStorage.setItem(STORAGE_KEYS.COUNT, count);
+		localStorage.setItem(STORAGE_KEYS.ACTIVE_HISTORY_ID, activeHistoryId);
 		if (targetCount !== null) {
 			localStorage.setItem(STORAGE_KEYS.TARGET, targetCount);
 		} else {
@@ -418,6 +489,10 @@ function clearAllHistory() {
 
 	if (confirm(confirmMsg)) {
 		historyItems = historyItems.filter((it) => it.pinned);
+		if (activeHistoryId && !historyItems.some((it) => it.id === activeHistoryId)) {
+			activeHistoryId = null;
+			localStorage.removeItem(STORAGE_KEYS.ACTIVE_HISTORY_ID);
+		}
 		try {
 			if (historyItems.length > 0) {
 				localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
@@ -664,6 +739,7 @@ function incrementCounter() {
 	count++;
 	updateDisplay("up");
 	persistCount();
+	syncActiveHistoryItem();
 	triggerVibration();
 	checkTarget();
 }
@@ -674,6 +750,7 @@ function decrementCounter(e) {
 		count--;
 		updateDisplay("down");
 		persistCount();
+		syncActiveHistoryItem();
 		doVibrate(INTENSITIES[vibrationIntensity] || 50);
 		checkTarget(false); // Do not play confetti celebration when decrementing back to target
 	}
