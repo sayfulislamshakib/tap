@@ -372,19 +372,18 @@ button:active {
 	100% { transform: scale(1); }
 }
 
-/* Modal Overlay & Dialog */
+/* Modal Overlay & Dialog - Full Screen Presentation */
 .modal-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.65);
-	backdrop-filter: blur(10px);
-	-webkit-backdrop-filter: blur(10px);
+	background: #121212;
 	display: flex;
 	justify-content: center;
-	align-items: center;
+	align-items: stretch;
 	z-index: 1000;
-	padding: 20px;
+	padding: 0;
 	animation: fadeIn 0.2s ease-out;
+	overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -393,77 +392,99 @@ button:active {
 }
 
 .modal-card {
-	background: #1c1c1e;
-	border: 1px solid #2c2c2e;
-	border-radius: 20px;
+	background: #121212;
+	border: none;
+	border-radius: 0;
 	width: 100%;
-	max-width: 380px;
-	max-height: 85vh;
+	width: 100vw;
+	max-width: 100%;
+	height: 100%;
+	height: 100dvh;
+	max-height: 100%;
 	display: flex;
 	flex-direction: column;
-	padding: 24px;
-	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+	padding: max(16px, env(safe-area-inset-top, 16px)) max(16px, env(safe-area-inset-right, 16px)) max(20px, env(safe-area-inset-bottom, 20px)) max(16px, env(safe-area-inset-left, 16px));
+	box-shadow: none;
 	animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 	overflow: hidden;
 }
 
 @keyframes slideUp {
-	from { transform: translateY(20px) scale(0.96); opacity: 0; }
-	to { transform: translateY(0) scale(1); opacity: 1; }
+	from { transform: translateY(24px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
 }
 
 .modal-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	padding-bottom: 14px;
+	border-bottom: 1px solid #1f1f22;
 	margin-bottom: 16px;
 }
 
 .modal-header h2 {
-	font-size: 20px;
-	font-weight: 600;
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: -0.3px;
 	color: #fff;
 }
 
 .modal-close-btn {
-	font-size: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	background: #242426;
+	font-size: 22px;
 	color: #8e8e93;
-	padding: 4px 8px;
+	line-height: 1;
+	transition: all 0.2s ease;
 }
 
 .modal-close-btn:hover {
 	color: #fff;
+	background: #323236;
+}
+
+.modal-close-btn:active {
+	transform: scale(0.92);
 }
 
 /* Settings Tabs */
 .settings-tabs {
 	display: flex;
-	background: #2c2c2e;
-	padding: 3px;
-	border-radius: 10px;
+	background: #1f1f22;
+	padding: 4px;
+	border-radius: 12px;
 	gap: 4px;
 	margin-bottom: 20px;
 }
 
 .tab-btn {
 	flex: 1;
-	padding: 8px 12px;
-	font-size: 14px;
-	font-weight: 500;
+	padding: 10px 14px;
+	font-size: 15px;
+	font-weight: 600;
 	color: #8e8e93;
-	border-radius: 8px;
+	border-radius: 9px;
 	background: transparent;
 	text-align: center;
 	transition: all 0.2s ease;
 }
 
 .tab-btn.active {
-	background: #3a3a3c;
+	background: #2c2c2e;
 	color: #fff;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .tab-panel {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
@@ -472,10 +493,10 @@ button:active {
 
 /* Custom scrollbar for tab panels */
 .tab-panel::-webkit-scrollbar {
-	width: 4px;
+	width: 5px;
 }
 .tab-panel::-webkit-scrollbar-thumb {
-	background: #3a3a3c;
+	background: #2c2c2e;
 	border-radius: 4px;
 }
 
@@ -486,7 +507,7 @@ button:active {
 	align-items: center;
 	margin-bottom: 14px;
 	padding-bottom: 8px;
-	border-bottom: 1px solid #2c2c2e;
+	border-bottom: 1px solid #1f1f22;
 }
 
 .history-count-title {
@@ -498,17 +519,25 @@ button:active {
 }
 
 .clear-history-btn {
-	font-size: 13px;
+	font-size: 14px;
 	color: #ff3b30;
-	font-weight: 500;
-	padding: 2px 6px;
+	font-weight: 600;
+	padding: 4px 8px;
+	border-radius: 6px;
+	transition: background 0.15s ease;
+}
+
+.clear-history-btn:hover {
+	background: rgba(255, 59, 48, 0.12);
 }
 
 .history-list {
+	flex: 1;
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	max-height: 52vh;
+	max-height: none;
+	padding-bottom: 16px;
 }
 
 .history-empty {
