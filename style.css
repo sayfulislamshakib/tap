@@ -527,13 +527,82 @@ button:active {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	transition: background 0.2s ease;
+	cursor: pointer;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.history-item:hover {
+	background: #2d2d31;
+	border-color: #48484a;
+	transform: translateY(-1px);
+}
+
+.history-item:active {
+	background: #232326;
+	transform: scale(0.985);
+}
+
+.history-item:focus-visible {
+	outline: 2px solid #157dfb;
+	outline-offset: 2px;
+}
+
+.history-item.is-pinned {
+	border-color: rgba(255, 214, 10, 0.4);
+	background: #282724;
+}
+
+.history-item.is-pinned:hover {
+	border-color: rgba(255, 214, 10, 0.65);
+	background: #302e29;
 }
 
 .history-item-top {
 	display: flex;
 	justify-content: space-between;
-	align-items: baseline;
+	align-items: center;
+}
+
+.history-item-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.history-pin-btn {
+	background: transparent;
+	border: none;
+	padding: 4px;
+	border-radius: 6px;
+	color: #636366;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.history-pin-btn svg {
+	width: 16px;
+	height: 16px;
+	display: block;
+}
+
+.history-pin-btn:hover {
+	color: #ffd60a;
+	background: rgba(255, 214, 10, 0.12);
+	transform: scale(1.1);
+}
+
+.history-pin-btn:active {
+	transform: scale(0.92);
+}
+
+.history-pin-btn.pinned {
+	color: #ffd60a;
 }
 
 .history-count-badge {

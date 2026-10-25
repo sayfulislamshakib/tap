@@ -91,6 +91,7 @@ function loadSettings() {
 		if (savedHistory) {
 			historyItems = JSON.parse(savedHistory);
 			if (!Array.isArray(historyItems)) historyItems = [];
+			sortHistoryItems();
 		}
 	} catch (e) {
 		console.warn("Storage access failed:", e);
@@ -178,6 +179,19 @@ function recordSessionStart() {
 	}
 }
 
+function sortHistoryItems() {
+	historyItems.sort((a, b) => {
+		const aPinned = Boolean(a.pinned);
+		const bPinned = Boolean(b.pinned);
+		if (aPinned === bPinned) {
+			const aTime = a.id || (a.endDate ? new Date(a.endDate).getTime() : 0);
+			const bTime = b.id || (b.endDate ? new Date(b.endDate).getTime() : 0);
+			return bTime - aTime;
+		}
+		return aPinned ? -1 : 1;
+	});
+}
+
 function archiveSession() {
 	if (count === 0) return;
 
@@ -187,13 +201,26 @@ function archiveSession() {
 		target: targetCount,
 		note: targetNote || "",
 		startDate: sessionStartTime || new Date().toISOString(),
-		endDate: new Date().toISOString()
+		endDate: new Date().toISOString(),
+		pinned: false
 	};
 
 	historyItems.unshift(entry);
-	// Keep up to 50 historical sessions
+	sortHistoryItems();
+
+	// If history exceeds 50 sessions, prune the oldest unpinned entries first to protect pinned items
 	if (historyItems.length > 50) {
-		historyItems = historyItems.slice(0, 50);
+		const pinnedCount = historyItems.filter((it) => it.pinned).length;
+		if (pinnedCount >= 50) {
+			historyItems = historyItems.slice(0, 50);
+		} else {
+			// Remove oldest unpinned items from the end
+			for (let i = historyItems.length - 1; i >= 0 && historyItems.length > 50; i--) {
+				if (!historyItems[i].pinned) {
+					historyItems.splice(i, 1);
+				}
+			}
+		}
 	}
 
 	try {
@@ -235,7 +262,10 @@ function renderHistoryList() {
 
 	historyItems.forEach((item) => {
 		const div = document.createElement("div");
-		div.className = "history-item";
+		div.className = `history-item ${item.pinned ? "is-pinned" : ""}`;
+		div.setAttribute("role", "button");
+		div.setAttribute("tabindex", "0");
+		div.setAttribute("title", "Click to load and resume counting from here");
 
 		const isTargetMet = item.target !== null && item.count >= item.target;
 		const targetLabel = item.target ? `Target: ${item.target}` : "No target";
@@ -244,7 +274,15 @@ function renderHistoryList() {
 		div.innerHTML = `
 			<div class="history-item-top">
 				<span class="history-count-badge ${isTargetMet ? "target-met" : ""}">${item.count}</span>
-				<span class="history-target-pill">${targetLabel}</span>
+				<div class="history-item-actions">
+					<span class="history-target-pill">${targetLabel}</span>
+					<button class="history-pin-btn ${item.pinned ? "pinned" : ""}" type="button" aria-label="${item.pinned ? "Unpin session" : "Pin session"}" title="${item.pinned ? "Unpin session" : "Pin session"}">
+						<svg viewBox="0 0 24 24" fill="${item.pinned ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="12" y1="17" x2="12" y2="22"></line>
+							<path d="M5 17h14v-1.76l-1.9-2.85A4 4 0 0 1 16.5 10.1V5h1V3H6.5v2h1v5.1a4 4 0 0 1-.6 2.29L5 15.24V17z"></path>
+						</svg>
+					</button>
+				</div>
 			</div>
 			${noteMarkup}
 			<div class="history-dates">
@@ -252,8 +290,91 @@ function renderHistoryList() {
 				<span>End: ${formatDate(item.endDate)}</span>
 			</div>
 		`;
+
+		// Pin button click handler
+		const pinBtn = div.querySelector(".history-pin-btn");
+		pinBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			togglePinSession(item.id);
+		});
+
+		// Restore session to counter on click or Enter key
+		const handleRestore = (e) => {
+			if (e.target.closest(".history-pin-btn")) return;
+			restoreSession(item);
+		};
+
+		div.addEventListener("click", handleRestore);
+		div.addEventListener("keydown", (e) => {
+			if (e.key === "Enter" || e.key === " ") {
+				if (e.target.closest(".history-pin-btn")) return;
+				e.preventDefault();
+				handleRestore(e);
+			}
+		});
+
 		historyList.appendChild(div);
 	});
+}
+
+function togglePinSession(itemId) {
+	const item = historyItems.find((it) => it.id === itemId);
+	if (!item) return;
+
+	item.pinned = !item.pinned;
+	sortHistoryItems();
+
+	try {
+		localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
+	} catch (e) {
+		console.warn("Failed to persist pinned state:", e);
+	}
+
+	doVibrate(25);
+	renderHistoryList();
+}
+
+function restoreSession(item) {
+	const newCount = typeof item.count === "number" ? item.count : parseInt(item.count, 10) || 0;
+
+	// If current count has active unsaved progress different from this item, archive it first
+	if (count > 0 && count !== newCount) {
+		archiveSession();
+	}
+
+	// Restore count, target, and note from the history item
+	count = newCount;
+	targetCount = item.target !== undefined && item.target !== null ? item.target : null;
+	targetNote = item.note || "";
+	sessionStartTime = item.startDate || new Date().toISOString();
+
+	try {
+		localStorage.setItem(STORAGE_KEYS.COUNT, count);
+		if (targetCount !== null) {
+			localStorage.setItem(STORAGE_KEYS.TARGET, targetCount);
+		} else {
+			localStorage.removeItem(STORAGE_KEYS.TARGET);
+		}
+		if (targetNote) {
+			localStorage.setItem(STORAGE_KEYS.NOTE, targetNote);
+		} else {
+			localStorage.removeItem(STORAGE_KEYS.NOTE);
+		}
+		localStorage.setItem(STORAGE_KEYS.SESSION_START, sessionStartTime);
+	} catch (e) {
+		console.warn("Storage update on restore failed:", e);
+	}
+
+	// Update UI
+	updateDisplay();
+	renderSettingsUI();
+	renderTargetIndicator();
+	renderTargetNote();
+	checkTarget(false);
+
+	// Provide haptic feedback and close settings modal to return home
+	doVibrate(INTENSITIES[vibrationIntensity] || 50);
+	closeSettings();
 }
 
 function escapeHtml(str) {
@@ -283,10 +404,26 @@ function switchTab(tab) {
 }
 
 function clearAllHistory() {
-	if (confirm("Clear all session history?")) {
-		historyItems = [];
+	const unpinnedCount = historyItems.filter((it) => !it.pinned).length;
+	if (unpinnedCount === 0) {
+		if (historyItems.length > 0) {
+			alert("All current sessions are pinned and protected from clearing.");
+		}
+		return;
+	}
+
+	const confirmMsg = historyItems.some((it) => it.pinned)
+		? "Clear all unpinned history? Pinned items will be kept."
+		: "Clear all session history?";
+
+	if (confirm(confirmMsg)) {
+		historyItems = historyItems.filter((it) => it.pinned);
 		try {
-			localStorage.removeItem(STORAGE_KEYS.HISTORY);
+			if (historyItems.length > 0) {
+				localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(historyItems));
+			} else {
+				localStorage.removeItem(STORAGE_KEYS.HISTORY);
+			}
 		} catch (e) {}
 		renderHistoryList();
 	}
